@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 
+interface Driver {
+  name: string;
+  id_card: string;
+  vehicle_plate: string;
+}
+
 interface Props {
   type: 'travel' | 'warehouse';
   onClose: () => void;
@@ -25,14 +31,31 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
     dua: '',
     marchamo: '',
     caucion: '',
+    price_approved: false,
   });
+
+  const [drivers, setDrivers] = useState<Driver[]>([{ name: '', id_card: '', vehicle_plate: '' }]);
   const [uploading, setUploading] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+
+  const addDriver = () => {
+    setDrivers([...drivers, { name: '', id_card: '', vehicle_plate: '' }]);
+  };
+
+  const updateDriver = (index: number, field: keyof Driver, value: string) => {
+    const updated = [...drivers];
+    updated[index] = { ...updated[index], [field]: value };
+    setDrivers(updated);
+  };
+
+  const removeDriver = (index: number) => {
+    if (drivers.length === 1) return;
+    setDrivers(drivers.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validar el monto
     if (formData.amount) {
       const amountValue = parseFloat(formData.amount);
       if (amountValue > 99999999.99) {
@@ -86,21 +109,30 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
       assigned_carrier: formData.assigned_carrier || null,
       operation_datetime: formData.operation_datetime || null,
       transport_type: formData.transport_type || null,
-      driver_id_card: formData.driver_id_card || null,
-      vehicle_plate: formData.vehicle_plate || null,
     };
 
-    if (type === 'warehouse' && formData.shipment_numbers) {
-      ticketData.shipment_numbers = formData.shipment_numbers
-        .split(',')
-        .map((num) => num.trim())
-        .filter((num) => num);
-    }
-
     if (type === 'warehouse') {
+      // Múltiples choferes
+      const validDrivers = drivers.filter(d => d.name || d.id_card || d.vehicle_plate);
+      ticketData.drivers = validDrivers.length > 0 ? validDrivers : null;
+      // Compatibilidad con campos legacy
+      ticketData.driver_id_card = validDrivers[0]?.id_card || null;
+      ticketData.vehicle_plate = validDrivers[0]?.vehicle_plate || null;
+
       ticketData.dua = formData.dua || null;
       ticketData.marchamo = formData.marchamo || null;
       ticketData.caucion = formData.caucion || null;
+      ticketData.price_approved = formData.price_approved;
+
+      if (formData.shipment_numbers) {
+        ticketData.shipment_numbers = formData.shipment_numbers
+          .split(',')
+          .map((num) => num.trim())
+          .filter((num) => num);
+      }
+    } else {
+      ticketData.driver_id_card = formData.driver_id_card || null;
+      ticketData.vehicle_plate = formData.vehicle_plate || null;
     }
 
     onCreate(ticketData);
@@ -113,10 +145,7 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
           <h2 className="text-base sm:text-xl font-semibold text-gray-900">
             Crear Ticket - {type === 'travel' ? 'Viaje Normal' : 'Viaje de Almacén'}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 cursor-pointer"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer">
             <i className="ri-close-line text-xl sm:text-2xl w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center"></i>
           </button>
         </div>
@@ -164,7 +193,6 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
                 placeholder="Ciudad, País"
               />
             </div>
-
             <div>
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                 Lugar de Destino *
@@ -228,33 +256,103 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          {/* Choferes: múltiples para almacén, uno para viaje normal */}
+          {type === 'warehouse' ? (
             <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                Cédula del Chofer
-              </label>
-              <input
-                type="text"
-                value={formData.driver_id_card}
-                onChange={(e) => setFormData({ ...formData, driver_id_card: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
-                placeholder="Número de cédula"
-              />
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">
+                  Choferes
+                </label>
+                <button
+                  type="button"
+                  onClick={addDriver}
+                  className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 font-medium cursor-pointer whitespace-nowrap"
+                >
+                  <i className="ri-add-circle-line w-4 h-4 flex items-center justify-center"></i>
+                  Agregar chofer
+                </button>
+              </div>
+              <div className="space-y-3">
+                {drivers.map((driver, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50 relative">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Chofer {index + 1}
+                      </span>
+                      {drivers.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeDriver(index)}
+                          className="text-red-400 hover:text-red-600 cursor-pointer w-5 h-5 flex items-center justify-center"
+                        >
+                          <i className="ri-close-circle-line text-base"></i>
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Nombre</label>
+                        <input
+                          type="text"
+                          value={driver.name}
+                          onChange={(e) => updateDriver(index, 'name', e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                          placeholder="Nombre del chofer"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Cédula</label>
+                        <input
+                          type="text"
+                          value={driver.id_card}
+                          onChange={(e) => updateDriver(index, 'id_card', e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                          placeholder="Número de cédula"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Placa</label>
+                        <input
+                          type="text"
+                          value={driver.vehicle_plate}
+                          onChange={(e) => updateDriver(index, 'vehicle_plate', e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                          placeholder="Placa del vehículo"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                Placa del Vehículo
-              </label>
-              <input
-                type="text"
-                value={formData.vehicle_plate}
-                onChange={(e) => setFormData({ ...formData, vehicle_plate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
-                placeholder="Número de placa"
-              />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Cédula del Chofer
+                </label>
+                <input
+                  type="text"
+                  value={formData.driver_id_card}
+                  onChange={(e) => setFormData({ ...formData, driver_id_card: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                  placeholder="Número de cédula"
+                />
+              </div>
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Placa del Vehículo
+                </label>
+                <input
+                  type="text"
+                  value={formData.vehicle_plate}
+                  onChange={(e) => setFormData({ ...formData, vehicle_plate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                  placeholder="Número de placa"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {type === 'warehouse' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -282,6 +380,21 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
                   placeholder="Número de caución"
                 />
               </div>
+            </div>
+          )}
+
+          {type === 'warehouse' && (
+            <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <input
+                type="checkbox"
+                id="price_approved"
+                checked={formData.price_approved}
+                onChange={(e) => setFormData({ ...formData, price_approved: e.target.checked })}
+                className="w-5 h-5 rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer accent-teal-600"
+              />
+              <label htmlFor="price_approved" className="text-xs sm:text-sm font-medium text-amber-800 cursor-pointer select-none">
+                ✓ Precio aprobado por el transportista
+              </label>
             </div>
           )}
 

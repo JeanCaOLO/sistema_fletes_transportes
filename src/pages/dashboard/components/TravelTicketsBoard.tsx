@@ -287,8 +287,8 @@ export default function TravelTicketsBoard() {
           ticket={selectedTicket}
           type="travel"
           onClose={() => setSelectedTicket(null)}
-          onUpdate={handleUpdateTicket}
-          onDelete={handleDeleteTicket}
+          onUpdate={() => { setSelectedTicket(null); fetchTickets(); }}
+          onDelete={() => handleDeleteTicket(selectedTicket.id)}
         />
       )}
     </div>

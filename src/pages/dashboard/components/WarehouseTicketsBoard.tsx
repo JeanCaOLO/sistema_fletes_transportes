@@ -291,8 +291,8 @@ export default function WarehouseTicketsBoard() {
           ticket={selectedTicket}
           type="warehouse"
           onClose={() => setSelectedTicket(null)}
-          onUpdate={handleUpdateTicket}
-          onDelete={handleDeleteTicket}
+          onUpdate={() => { setSelectedTicket(null); fetchTickets(); }}
+          onDelete={() => handleDeleteTicket(selectedTicket.id)}
         />
       )}
     </div>
