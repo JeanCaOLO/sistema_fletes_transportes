@@ -6,33 +6,8 @@ interface Driver {
   name: string;
   id_card: string;
   vehicle_plate: string;
-}
-
-interface TicketDetailModalProps {
-  ticket: {
-    id: string;
-    ticket_number?: number;
-    expedition_id: string;
-    description: string;
-    origin: string;
-    destination: string;
-    status: string;
-    amount?: number;
-    created_at: string;
-    completion_date?: string;
-    photo_url?: string;
-    assigned_carrier?: string;
-    operation_datetime?: string;
-    transport_type?: string;
-    driver_id_card?: string;
-    vehicle_plate?: string;
-    drivers?: Driver[];
-    shipment_numbers?: string[];
-    price_approved?: boolean;
-  };
-  onClose: () => void;
-  onUpdate: () => void;
-  type: 'travel' | 'warehouse';
+  marchamo: string;
+  caucion: string;
 }
 
 const statusOptions = [
@@ -63,25 +38,19 @@ const transportTypes = [
   'Furgón 53"',
 ];
 
-// Convierte cualquier fecha ISO o date string a formato YYYY-MM-DD para input type="date"
-// Nunca usa new Date() para evitar conversiones de zona horaria
 const toDateInputValue = (dateStr?: string | null): string => {
   if (!dateStr) return '';
   const match = dateStr.match(/^(\d{4}-\d{2}-\d{2})/);
   return match ? match[1] : '';
 };
 
-// Convierte cualquier fecha ISO a formato YYYY-MM-DDTHH:mm para input type="datetime-local"
-// Elimina el sufijo de zona horaria antes de parsear para respetar la hora guardada tal cual
 const toDateTimeLocalValue = (dateStr?: string | null): string => {
   if (!dateStr) return '';
-  // Eliminar sufijo de zona horaria (+00:00, -06:00, Z, etc.)
   const cleaned = dateStr.replace(/([+-]\d{2}:\d{2}|Z)$/, '');
   const match = cleaned.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
   return match ? match[1] : '';
 };
 
-// Muestra fecha YYYY-MM-DD como DD/MM/YYYY sin conversión de zona horaria
 const displayCompletionDate = (dateStr?: string | null): string => {
   if (!dateStr) return 'No especificada';
   const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -89,7 +58,6 @@ const displayCompletionDate = (dateStr?: string | null): string => {
   return dateStr;
 };
 
-// Muestra datetime como DD/MM/YYYY HH:mm sin conversión de zona horaria
 const displayDateTime = (dateStr?: string | null): string => {
   if (!dateStr) return '';
   const cleaned = dateStr.replace(/([+-]\d{2}:\d{2}|Z)$/, '');
@@ -98,12 +66,58 @@ const displayDateTime = (dateStr?: string | null): string => {
   return dateStr;
 };
 
+interface TicketDetailModalProps {
+  ticket: {
+    id: string;
+    ticket_number?: number;
+    expedition_id: string;
+    description: string;
+    origin: string;
+    destination: string;
+    status: string;
+    amount?: number;
+    created_at: string;
+    completion_date?: string;
+    photo_url?: string;
+    assigned_carrier?: string;
+    operation_datetime?: string;
+    transport_type?: string;
+    driver_id_card?: string;
+    vehicle_plate?: string;
+    drivers?: Driver[];
+    shipment_numbers?: string[];
+    price_approved?: boolean;
+    marchamo?: string;
+    caucion?: string;
+    dua?: string;
+  };
+  onClose: () => void;
+  onUpdate: () => void;
+  type: 'travel' | 'warehouse';
+}
+
 export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: TicketDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false);
 
-  const initialDrivers: Driver[] = ticket.drivers && ticket.drivers.length > 0
-    ? ticket.drivers
-    : [{ name: '', id_card: ticket.driver_id_card || '', vehicle_plate: ticket.vehicle_plate || '' }];
+  // Populate marchamo/caucion into drivers for backward compatibility with old records
+  const initialDrivers: Driver[] = (() => {
+    if (ticket.drivers && ticket.drivers.length > 0) {
+      return ticket.drivers.map((d, i) => ({
+        name: d.name || '',
+        id_card: d.id_card || '',
+        vehicle_plate: d.vehicle_plate || '',
+        marchamo: d.marchamo || (i === 0 ? ticket.marchamo || '' : ''),
+        caucion: d.caucion || (i === 0 ? ticket.caucion || '' : ''),
+      }));
+    }
+    return [{
+      name: '',
+      id_card: ticket.driver_id_card || '',
+      vehicle_plate: ticket.vehicle_plate || '',
+      marchamo: ticket.marchamo || '',
+      caucion: ticket.caucion || '',
+    }];
+  })();
 
   const [formData, setFormData] = useState({
     expedition_id: ticket.expedition_id,
@@ -118,6 +132,7 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
     transport_type: ticket.transport_type || '',
     driver_id_card: ticket.driver_id_card || '',
     vehicle_plate: ticket.vehicle_plate || '',
+    dua: ticket.dua || '',
     shipment_numbers: ticket.shipment_numbers || [],
     price_approved: ticket.price_approved ?? false,
   });
@@ -133,7 +148,7 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
     return `#${num.toString().padStart(4, '0')}`;
   };
 
-  const addDriver = () => setDrivers([...drivers, { name: '', id_card: '', vehicle_plate: '' }]);
+  const addDriver = () => setDrivers([...drivers, { name: '', id_card: '', vehicle_plate: '', marchamo: '', caucion: '' }]);
 
   const updateDriver = (index: number, field: keyof Driver, value: string) => {
     const updated = [...drivers];
@@ -189,13 +204,16 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
       };
 
       if (type === 'warehouse') {
-        const validDrivers = drivers.filter(d => d.name || d.id_card || d.vehicle_plate);
+        const validDrivers = drivers.filter(d => d.name || d.id_card || d.vehicle_plate || d.marchamo || d.caucion);
         basePayload.drivers = validDrivers.length > 0 ? validDrivers : null;
+        // Compatibilidad legacy con primer chofer
+        basePayload.driver_id_card = validDrivers[0]?.id_card || null;
+        basePayload.vehicle_plate = validDrivers[0]?.vehicle_plate || null;
+        basePayload.marchamo = validDrivers[0]?.marchamo || null;
+        basePayload.caucion = validDrivers[0]?.caucion || null;
+        basePayload.dua = formData.dua || null;
         basePayload.price_approved = formData.price_approved;
         basePayload.shipment_numbers = formData.shipment_numbers.filter(s => s.trim() !== '');
-        if ('dua' in formData) basePayload.dua = (formData as any).dua || null;
-        if ('marchamo' in formData) basePayload.marchamo = (formData as any).marchamo || null;
-        if ('caucion' in formData) basePayload.caucion = (formData as any).caucion || null;
       } else {
         basePayload.driver_id_card = formData.driver_id_card || null;
         basePayload.vehicle_plate = formData.vehicle_plate || null;
@@ -241,11 +259,28 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
     setFormData({ ...formData, shipment_numbers: formData.shipment_numbers.filter((_, i) => i !== index) });
   };
 
-  const displayDrivers: Driver[] = ticket.drivers && ticket.drivers.length > 0
-    ? ticket.drivers
-    : (ticket.driver_id_card || ticket.vehicle_plate)
-      ? [{ name: '', id_card: ticket.driver_id_card || '', vehicle_plate: ticket.vehicle_plate || '' }]
-      : [];
+  // Build display drivers (view mode) with legacy fallback
+  const displayDrivers: Driver[] = (() => {
+    if (ticket.drivers && ticket.drivers.length > 0) {
+      return ticket.drivers.map((d, i) => ({
+        name: d.name || '',
+        id_card: d.id_card || '',
+        vehicle_plate: d.vehicle_plate || '',
+        marchamo: d.marchamo || (i === 0 ? ticket.marchamo || '' : ''),
+        caucion: d.caucion || (i === 0 ? ticket.caucion || '' : ''),
+      }));
+    }
+    if (ticket.driver_id_card || ticket.vehicle_plate || ticket.marchamo || ticket.caucion) {
+      return [{
+        name: '',
+        id_card: ticket.driver_id_card || '',
+        vehicle_plate: ticket.vehicle_plate || '',
+        marchamo: ticket.marchamo || '',
+        caucion: ticket.caucion || '',
+      }];
+    }
+    return [];
+  })();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -325,7 +360,7 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
                     {ticket.price_approved && <i className="ri-check-line text-white text-xs w-4 h-4 flex items-center justify-center"></i>}
                   </div>
                   <span className={`text-sm font-medium ${ticket.price_approved ? 'text-teal-700' : 'text-gray-500'}`}>
-                    Precio aprobado por el transportista: <strong>{ticket.price_approved ? 'Sí' : 'No'}</strong>
+                    Precio aprobado por el cliente: <strong>{ticket.price_approved ? 'Sí' : 'No'}</strong>
                   </span>
                 </div>
               )}
@@ -345,8 +380,8 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
                   <div className="space-y-2">
                     {displayDrivers.map((driver, index) => (
                       <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                        <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Chofer {index + 1}</p>
-                        <div className="grid grid-cols-3 gap-3 text-sm">
+                        <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Chofer {index + 1}</p>
+                        <div className="grid grid-cols-3 gap-3 text-sm mb-2">
                           {driver.name && (
                             <div>
                               <span className="text-gray-500 text-xs">Nombre</span>
@@ -366,6 +401,22 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
                             </div>
                           )}
                         </div>
+                        {(driver.marchamo || driver.caucion) && (
+                          <div className="grid grid-cols-2 gap-3 text-sm pt-2 border-t border-gray-200">
+                            {driver.marchamo && (
+                              <div>
+                                <span className="text-gray-500 text-xs">Marchamo</span>
+                                <p className="text-gray-900 font-medium">{driver.marchamo}</p>
+                              </div>
+                            )}
+                            {driver.caucion && (
+                              <div>
+                                <span className="text-gray-500 text-xs">Caución</span>
+                                <p className="text-gray-900 font-medium">{driver.caucion}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -392,7 +443,7 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Monto Asignado</label>
                 <p className="text-gray-900 text-lg font-semibold text-green-600">
-                  ${(ticket.amount || 0).toLocaleString('es-CR')}
+                  ₡{(ticket.amount || 0).toLocaleString('es-CR')}
                 </p>
               </div>
 
@@ -490,6 +541,13 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
                 </select>
               </div>
 
+              {type === 'warehouse' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">DUA</label>
+                  <input type="text" value={formData.dua} onChange={(e) => setFormData({ ...formData, dua: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm" placeholder="Número de DUA" />
+                </div>
+              )}
+
               {type === 'warehouse' ? (
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -510,7 +568,7 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
                             </button>
                           )}
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
                           <div>
                             <label className="block text-xs text-gray-600 mb-1">Nombre</label>
                             <input type="text" value={driver.name} onChange={(e) => updateDriver(index, 'name', e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm" placeholder="Nombre del chofer" />
@@ -522,6 +580,16 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
                           <div>
                             <label className="block text-xs text-gray-600 mb-1">Placa</label>
                             <input type="text" value={driver.vehicle_plate} onChange={(e) => updateDriver(index, 'vehicle_plate', e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm" placeholder="Placa del vehículo" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-gray-200">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Marchamo</label>
+                            <input type="text" value={driver.marchamo} onChange={(e) => updateDriver(index, 'marchamo', e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm" placeholder="Número de marchamo" />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Caución</label>
+                            <input type="text" value={driver.caucion} onChange={(e) => updateDriver(index, 'caucion', e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm" placeholder="Número de caución" />
                           </div>
                         </div>
                       </div>
@@ -545,7 +613,7 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
                 <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <input type="checkbox" id="edit_price_approved" checked={formData.price_approved} onChange={(e) => setFormData({ ...formData, price_approved: e.target.checked })} className="w-5 h-5 rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer accent-teal-600" />
                   <label htmlFor="edit_price_approved" className="text-sm font-medium text-amber-800 cursor-pointer select-none">
-                    ✓ Precio aprobado por el transportista
+                    ✓ Precio aprobado por el cliente
                   </label>
                 </div>
               )}

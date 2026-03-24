@@ -406,7 +406,7 @@ export default function ReportsModule() {
             <div>
               <p className="text-xs sm:text-sm font-medium text-gray-600">Monto Total</p>
               <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">
-                ${displayData.totalAmount.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₡{displayData.totalAmount.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -420,7 +420,7 @@ export default function ReportsModule() {
             <div>
               <p className="text-xs sm:text-sm font-medium text-gray-600">Monto Promedio</p>
               <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">
-                ${displayData.averageAmount.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₡{displayData.averageAmount.toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-lg flex items-center justify-center">

@@ -64,7 +64,7 @@ export default function TicketCard({ ticket, onClick }: Props) {
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">Monto:</span>
             <span className="text-sm sm:text-base font-semibold text-gray-900">
-              ${Number(ticket.amount).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ₡{Number(ticket.amount).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>

@@ -5,6 +5,8 @@ interface Driver {
   name: string;
   id_card: string;
   vehicle_plate: string;
+  marchamo: string;
+  caucion: string;
 }
 
 interface Props {
@@ -29,17 +31,17 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
     driver_id_card: '',
     vehicle_plate: '',
     dua: '',
-    marchamo: '',
-    caucion: '',
     price_approved: false,
   });
 
-  const [drivers, setDrivers] = useState<Driver[]>([{ name: '', id_card: '', vehicle_plate: '' }]);
+  const [drivers, setDrivers] = useState<Driver[]>([
+    { name: '', id_card: '', vehicle_plate: '', marchamo: '', caucion: '' },
+  ]);
   const [uploading, setUploading] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   const addDriver = () => {
-    setDrivers([...drivers, { name: '', id_card: '', vehicle_plate: '' }]);
+    setDrivers([...drivers, { name: '', id_card: '', vehicle_plate: '', marchamo: '', caucion: '' }]);
   };
 
   const updateDriver = (index: number, field: keyof Driver, value: string) => {
@@ -112,16 +114,15 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
     };
 
     if (type === 'warehouse') {
-      // Múltiples choferes
-      const validDrivers = drivers.filter(d => d.name || d.id_card || d.vehicle_plate);
+      const validDrivers = drivers.filter(d => d.name || d.id_card || d.vehicle_plate || d.marchamo || d.caucion);
       ticketData.drivers = validDrivers.length > 0 ? validDrivers : null;
-      // Compatibilidad con campos legacy
+      // Compatibilidad legacy con primer chofer
       ticketData.driver_id_card = validDrivers[0]?.id_card || null;
       ticketData.vehicle_plate = validDrivers[0]?.vehicle_plate || null;
+      ticketData.marchamo = validDrivers[0]?.marchamo || null;
+      ticketData.caucion = validDrivers[0]?.caucion || null;
 
       ticketData.dua = formData.dua || null;
-      ticketData.marchamo = formData.marchamo || null;
-      ticketData.caucion = formData.caucion || null;
       ticketData.price_approved = formData.price_approved;
 
       if (formData.shipment_numbers) {
@@ -256,7 +257,7 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
             />
           </div>
 
-          {/* Choferes: múltiples para almacén, uno para viaje normal */}
+          {/* Choferes */}
           {type === 'warehouse' ? (
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -274,7 +275,7 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
               </div>
               <div className="space-y-3">
                 {drivers.map((driver, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50 relative">
+                  <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         Chofer {index + 1}
@@ -289,7 +290,7 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
                         </button>
                       )}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
                       <div>
                         <label className="block text-xs text-gray-600 mb-1">Nombre</label>
                         <input
@@ -318,6 +319,28 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
                           onChange={(e) => updateDriver(index, 'vehicle_plate', e.target.value)}
                           className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
                           placeholder="Placa del vehículo"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-gray-200">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Marchamo</label>
+                        <input
+                          type="text"
+                          value={driver.marchamo}
+                          onChange={(e) => updateDriver(index, 'marchamo', e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                          placeholder="Número de marchamo"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Caución</label>
+                        <input
+                          type="text"
+                          value={driver.caucion}
+                          onChange={(e) => updateDriver(index, 'caucion', e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                          placeholder="Número de caución"
                         />
                       </div>
                     </div>
@@ -355,35 +378,6 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
           )}
 
           {type === 'warehouse' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                  Marchamo
-                </label>
-                <input
-                  type="text"
-                  value={formData.marchamo}
-                  onChange={(e) => setFormData({ ...formData, marchamo: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
-                  placeholder="Número de marchamo"
-                />
-              </div>
-              <div>
-                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                  Caución
-                </label>
-                <input
-                  type="text"
-                  value={formData.caucion}
-                  onChange={(e) => setFormData({ ...formData, caucion: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
-                  placeholder="Número de caución"
-                />
-              </div>
-            </div>
-          )}
-
-          {type === 'warehouse' && (
             <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <input
                 type="checkbox"
@@ -393,7 +387,7 @@ export default function CreateTicketModal({ type, onClose, onCreate }: Props) {
                 className="w-5 h-5 rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer accent-teal-600"
               />
               <label htmlFor="price_approved" className="text-xs sm:text-sm font-medium text-amber-800 cursor-pointer select-none">
-                ✓ Precio aprobado por el transportista
+                ✓ Precio aprobado por el cliente
               </label>
             </div>
           )}
