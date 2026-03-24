@@ -9,24 +9,44 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'travel' | 'warehouse' | 'reports'>('travel');
   const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    checkUser();
-  }, []);
+    // First: restore session from localStorage (critical for refresh)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        navigate('/');
+      } else {
+        setUser(session.user);
+        setAuthLoading(false);
+      }
+    });
 
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      navigate('/');
-    } else {
-      setUser(user);
-    }
-  };
+    // Then: listen for auth state changes (logout, token refresh, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        navigate('/');
+      } else {
+        setUser(session.user);
+        setAuthLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/');
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-500 text-sm">Cargando...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

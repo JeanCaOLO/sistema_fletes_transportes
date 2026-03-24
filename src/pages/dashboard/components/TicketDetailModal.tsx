@@ -63,6 +63,41 @@ const transportTypes = [
   'Furgón 53"',
 ];
 
+// Convierte cualquier fecha ISO o date string a formato YYYY-MM-DD para input type="date"
+// Nunca usa new Date() para evitar conversiones de zona horaria
+const toDateInputValue = (dateStr?: string | null): string => {
+  if (!dateStr) return '';
+  const match = dateStr.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : '';
+};
+
+// Convierte cualquier fecha ISO a formato YYYY-MM-DDTHH:mm para input type="datetime-local"
+// Elimina el sufijo de zona horaria antes de parsear para respetar la hora guardada tal cual
+const toDateTimeLocalValue = (dateStr?: string | null): string => {
+  if (!dateStr) return '';
+  // Eliminar sufijo de zona horaria (+00:00, -06:00, Z, etc.)
+  const cleaned = dateStr.replace(/([+-]\d{2}:\d{2}|Z)$/, '');
+  const match = cleaned.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
+  return match ? match[1] : '';
+};
+
+// Muestra fecha YYYY-MM-DD como DD/MM/YYYY sin conversión de zona horaria
+const displayCompletionDate = (dateStr?: string | null): string => {
+  if (!dateStr) return 'No especificada';
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+  return dateStr;
+};
+
+// Muestra datetime como DD/MM/YYYY HH:mm sin conversión de zona horaria
+const displayDateTime = (dateStr?: string | null): string => {
+  if (!dateStr) return '';
+  const cleaned = dateStr.replace(/([+-]\d{2}:\d{2}|Z)$/, '');
+  const match = cleaned.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (match) return `${match[3]}/${match[2]}/${match[1]} ${match[4]}:${match[5]}`;
+  return dateStr;
+};
+
 export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: TicketDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false);
 
@@ -77,9 +112,9 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
     destination: ticket.destination,
     status: ticket.status,
     amount: ticket.amount || 0,
-    completion_date: ticket.completion_date || '',
+    completion_date: toDateInputValue(ticket.completion_date),
     assigned_carrier: ticket.assigned_carrier || '',
-    operation_datetime: ticket.operation_datetime || '',
+    operation_datetime: toDateTimeLocalValue(ticket.operation_datetime),
     transport_type: ticket.transport_type || '',
     driver_id_card: ticket.driver_id_card || '',
     vehicle_plate: ticket.vehicle_plate || '',
@@ -146,9 +181,9 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
         destination: formData.destination,
         status: formData.status,
         amount: formData.amount,
-        completion_date: formData.completion_date || null,
+        completion_date: formData.completion_date ? formData.completion_date : null,
         assigned_carrier: formData.assigned_carrier || null,
-        operation_datetime: formData.operation_datetime || null,
+        operation_datetime: formData.operation_datetime ? `${formData.operation_datetime}:00` : null,
         transport_type: formData.transport_type || null,
         photo_url: photoUrl,
       };
@@ -262,18 +297,18 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Creación</label>
-                  <p className="text-gray-900">{new Date(ticket.created_at).toLocaleDateString('es-CR')}</p>
+                  <p className="text-gray-900">{displayCompletionDate(ticket.created_at)}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Finalización</label>
-                  <p className="text-gray-900">{ticket.completion_date ? new Date(ticket.completion_date).toLocaleDateString('es-CR') : 'No especificada'}</p>
+                  <p className="text-gray-900">{displayCompletionDate(ticket.completion_date)}</p>
                 </div>
               </div>
 
               {ticket.operation_datetime && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fecha y Hora de Operación</label>
-                  <p className="text-gray-900">{new Date(ticket.operation_datetime).toLocaleString('es-CR')}</p>
+                  <p className="text-gray-900">{displayDateTime(ticket.operation_datetime)}</p>
                 </div>
               )}
 
@@ -424,11 +459,21 @@ export default function TicketDetailModal({ ticket, onClose, onUpdate, type }: T
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Finalización</label>
-                  <input type="date" value={formData.completion_date} onChange={(e) => setFormData({ ...formData, completion_date: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm" />
+                  <input
+                    type="date"
+                    value={formData.completion_date}
+                    onChange={(e) => setFormData({ ...formData, completion_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fecha y Hora de Operación</label>
-                  <input type="datetime-local" value={formData.operation_datetime} onChange={(e) => setFormData({ ...formData, operation_datetime: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm" />
+                  <input
+                    type="datetime-local"
+                    value={formData.operation_datetime}
+                    onChange={(e) => setFormData({ ...formData, operation_datetime: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                  />
                 </div>
               </div>
 
