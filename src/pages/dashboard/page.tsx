@@ -12,24 +12,25 @@ export default function Dashboard() {
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    // First: restore session from localStorage (critical for refresh)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        navigate('/');
-      } else {
-        setUser(session.user);
-        setAuthLoading(false);
-      }
-    });
-
-    // Then: listen for auth state changes (logout, token refresh, etc.)
+    // onAuthStateChange fires INITIAL_SESSION as the very first event,
+    // with the session restored from localStorage — this is the safe way to
+    // check auth on page refresh without race conditions.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || !session) {
-        navigate('/');
-      } else {
-        setUser(session.user);
+      if (event === 'INITIAL_SESSION') {
+        // This is the definitive answer: is the user logged in or not?
+        if (session) {
+          setUser(session.user);
+          setAuthLoading(false);
+        } else {
+          navigate('/');
+        }
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        setUser(session?.user ?? null);
         setAuthLoading(false);
+      } else if (event === 'SIGNED_OUT') {
+        navigate('/');
       }
+      // Ignore other events (PASSWORD_RECOVERY, etc.) to avoid false redirects
     });
 
     return () => subscription.unsubscribe();
@@ -43,7 +44,10 @@ export default function Dashboard() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500 text-sm">Cargando...</div>
+        <div className="flex items-center gap-3 text-gray-500 text-sm">
+          <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+          <span>Verificando sesión...</span>
+        </div>
       </div>
     );
   }
