@@ -76,6 +76,14 @@ export default function TicketCard({ ticket, onClick }: Props) {
           <span className="truncate">{ticket.assigned_carrier}</span>
         </div>
       )}
+
+      {ticket.dua && (
+        <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-1.5 text-xs">
+          <i className="ri-file-text-line w-3 h-3 flex items-center justify-center flex-shrink-0 text-teal-600"></i>
+          <span className="text-gray-500 font-medium flex-shrink-0">DUA:</span>
+          <span className="truncate font-semibold text-teal-700">{ticket.dua}</span>
+        </div>
+      )}
     </div>
   );
 }
